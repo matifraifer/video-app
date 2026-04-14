@@ -255,10 +255,7 @@
           btnRefresh.disabled = false;
         });
         hls.on(Hls.Events.ERROR, (_, data) => {
-          if (data.fatal) {
-            setStatus('error', 'Error de stream');
-            showError(`Error HLS: ${data.details}`);
-          }
+          showError(`HLS ${data.fatal ? 'FATAL' : 'warn'}: ${data.type} / ${data.details}`);
         });
       } else if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
         videoEl.src = url;
@@ -285,6 +282,7 @@
         const token = await getToken();
         const url = await getStream(token);
         if (!url) throw new Error('La API no devolvio una URL de stream. Verifica que la camara este en linea.');
+        showError(`DEBUG url: ${url}`);
         playHLS(url);
       } catch (err) {
         showError(err.message);
