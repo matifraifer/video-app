@@ -52,15 +52,15 @@ export default async function handler(req, res) {
       const info = await infoRes.json();
       if (info.result?.code === '0') {
         const streams = info.result.data?.streams || [];
-        // Prefer HTTPS stream to avoid mixed-content issues
-        const httpsStream = streams.find(s => s.hls?.startsWith('https://'));
-        const httpStream  = streams.find(s => s.hls?.startsWith('http://'));
-        let hlsUrl = httpsStream?.hls || httpStream?.hls || streams[0]?.hls || null;
-        // Last resort: convert HTTP to HTTPS
+        // Look for sub-stream (streamId=1, H.264) with HTTPS first
+        const pick = (sid, proto) => streams.find(s => s.streamId === sid && s.hls?.startsWith(proto));
+        let chosen = pick(1, 'https://') || pick(1, 'http://') || pick(0, 'https://') || streams[0];
+        let hlsUrl = chosen?.hls || null;
         if (hlsUrl?.startsWith('http://')) {
-          hlsUrl = hlsUrl.replace('http://', 'https://').replace(/:8888/, '');
+          hlsUrl = hlsUrl.replace('http://', 'https://').replace(/:8888\b/, '');
         }
-        return res.json({ url: hlsUrl, streams });
+        // Debug: return all stream info
+        return res.json({ url: hlsUrl, chosenStreamId: chosen?.streamId, streams });
       }
       return res.status(400).json({ error: info.result?.msg || 'Failed to get stream info', code: info.result?.code });
     }
