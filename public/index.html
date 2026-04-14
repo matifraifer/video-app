@@ -185,10 +185,8 @@
     </div>
 
     <div class="controls">
-      <select id="device-select">
-        <option value="">Cargando camaras...</option>
-      </select>
-      <button id="btn-connect" disabled>Conectar</button>
+      <span style="flex:1; font-size:0.85rem; color:#888;">IMOU Ranger 2C &mdash; Canal 0 &mdash; HD</span>
+      <button id="btn-connect">Conectar</button>
       <button id="btn-refresh" disabled>Actualizar stream</button>
     </div>
   </div>
@@ -198,18 +196,16 @@
   <script>
     const BASE = '';  // same origin on Vercel
 
-    const videoEl      = document.getElementById('camera-video');
-    const placeholder  = document.getElementById('placeholder');
+    const videoEl        = document.getElementById('camera-video');
+    const placeholder    = document.getElementById('placeholder');
     const placeholderTxt = document.getElementById('placeholder-text');
-    const deviceSelect = document.getElementById('device-select');
-    const btnConnect   = document.getElementById('btn-connect');
-    const btnRefresh   = document.getElementById('btn-refresh');
-    const statusDot    = document.getElementById('status-dot');
-    const statusText   = document.getElementById('status-text');
-    const errorMsg     = document.getElementById('error-msg');
+    const btnConnect     = document.getElementById('btn-connect');
+    const btnRefresh     = document.getElementById('btn-refresh');
+    const statusDot      = document.getElementById('status-dot');
+    const statusText     = document.getElementById('status-text');
+    const errorMsg       = document.getElementById('error-msg');
 
     let hls = null;
-    let currentToken = null;
 
     function setStatus(state, text) {
       statusDot.className = state;
@@ -232,25 +228,14 @@
       return data.token;
     }
 
-    async function getDevices(token) {
-      const res = await fetch(`${BASE}/api/devices`, {
+    async function getStream(token) {
+      const res = await fetch(`${BASE}/api/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token })
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Error al obtener dispositivos');
-      return data.devices;
-    }
-
-    async function getStream(token, deviceId) {
-      const res = await fetch(`${BASE}/api/stream`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, deviceId })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Error al obtener stream');
+      if (!res.ok) throw new Error(data.error || `Error al obtener stream (${data.code})`);
       return data.url;
     }
 
@@ -276,7 +261,6 @@
           }
         });
       } else if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
-        // Safari native HLS
         videoEl.src = url;
         videoEl.play();
         setStatus('live', 'En vivo');
@@ -287,43 +271,10 @@
       }
     }
 
-    async function init() {
-      setStatus('connecting', 'Conectando...');
-      clearError();
-      try {
-        currentToken = await getToken();
-        const devices = await getDevices(currentToken);
-
-        if (devices.length === 0) {
-          showError('No se encontraron camaras vinculadas a tu cuenta IMOU.');
-          setStatus('error', 'Sin camaras');
-          return;
-        }
-
-        deviceSelect.innerHTML = '';
-        devices.forEach(d => {
-          const opt = document.createElement('option');
-          opt.value = d.deviceId;
-          opt.textContent = d.name || d.deviceId;
-          deviceSelect.appendChild(opt);
-        });
-
-        btnConnect.disabled = false;
-        setStatus('', 'Listo');
-        statusDot.className = '';
-      } catch (err) {
-        showError(err.message);
-        setStatus('error', 'Error');
-      }
-    }
-
     async function connect() {
-      const deviceId = deviceSelect.value;
-      if (!deviceId) return;
-
       btnConnect.disabled = true;
       btnRefresh.disabled = true;
-      setStatus('connecting', 'Obteniendo stream...');
+      setStatus('connecting', 'Conectando...');
       clearError();
 
       placeholderTxt.textContent = 'Conectando...';
@@ -331,9 +282,8 @@
       placeholder.style.display = 'flex';
 
       try {
-        // Refresh token before each stream request
-        currentToken = await getToken();
-        const url = await getStream(currentToken, deviceId);
+        const token = await getToken();
+        const url = await getStream(token);
         if (!url) throw new Error('La API no devolvio una URL de stream. Verifica que la camara este en linea.');
         playHLS(url);
       } catch (err) {
@@ -346,9 +296,6 @@
 
     btnConnect.addEventListener('click', connect);
     btnRefresh.addEventListener('click', connect);
-
-    // Auto-load devices on page load
-    init();
   </script>
 </body>
 </html>

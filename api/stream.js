@@ -16,11 +16,14 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   const { IMOU_APP_ID, IMOU_APP_SECRET } = process.env;
-  const { token, deviceId, channelId = '0' } = req.body || {};
+  const { token } = req.body || {};
 
-  if (!token || !deviceId) {
-    return res.status(400).json({ error: 'Missing token or deviceId' });
+  if (!token) {
+    return res.status(400).json({ error: 'Missing token' });
   }
+
+  const deviceId = '9E085D6PBV3E06B';
+  const channelId = '0';
 
   try {
     const response = await fetch('https://openapi-or.easy4ip.com/openapi/bindDeviceLive', {
@@ -29,7 +32,7 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         system: makeSystem(IMOU_APP_ID, IMOU_APP_SECRET),
         id: crypto.randomUUID(),
-        params: { token, deviceId, channelId, streamId: 1, liveMode: 'proxy' }
+        params: { token, deviceId, channelId, streamId: 0, liveMode: 'proxy' }
       })
     });
 
