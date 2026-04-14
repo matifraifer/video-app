@@ -21,7 +21,7 @@ export default async function handler(req, res) {
   if (!token) return res.status(400).json({ error: 'Missing token' });
 
   try {
-    const response = await fetch('https://openapi.imoulife.com/openApiService/device/deviceBaseList', {
+    const response = await fetch('https://openapi-or.easy4ip.com/openapi/deviceBaseList', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

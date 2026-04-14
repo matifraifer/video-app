@@ -23,12 +23,12 @@ export default async function handler(req, res) {
   }
 
   try {
-    const response = await fetch('https://openapi.imoulife.com/openApiService/device/getLiveStreamInfo', {
+    const response = await fetch('https://openapi-or.easy4ip.com/openapi/bindDeviceLive', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         system: { ...makeSystem(IMOU_APP_ID, IMOU_APP_SECRET), token },
-        params: { deviceId, channelId, streamType: 1 }
+        params: { deviceId, channelId, streamId: 1, liveMode: 'proxy' }
       })
     });
 
@@ -36,9 +36,8 @@ export default async function handler(req, res) {
 
     if (data.result?.code === '0') {
       const streams = data.result.data?.streams || [];
-      // Prefer HLS stream for browser compatibility
-      const hls = streams.find(s => s.streamType === 'HLS') || streams[0];
-      res.json({ url: hls?.hls || hls?.url || null, streams });
+      const hlsUrl = streams[0]?.hls || null;
+      res.json({ url: hlsUrl, streams });
     } else {
       res.status(400).json({ error: data.result?.msg || 'Failed to get stream', code: data.result?.code });
     }

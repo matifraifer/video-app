@@ -19,7 +19,7 @@ export default async function handler(req, res) {
     .digest('hex');
 
   try {
-    const response = await fetch('https://openapi.imoulife.com/openApiService/account/accessToken', {
+    const response = await fetch('https://openapi-or.easy4ip.com/openapi/accessToken', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
