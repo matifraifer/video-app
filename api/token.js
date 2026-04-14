@@ -36,6 +36,6 @@ export default async function handler(req, res) {
       res.status(400).json({ error: data.result?.msg || 'Auth failed', code: data.result?.code });
     }
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message, cause: err.cause?.message || err.cause || null });
   }
 }
