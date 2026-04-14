@@ -25,8 +25,8 @@ export default async function handler(req, res) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        system: { ...makeSystem(IMOU_APP_ID, IMOU_APP_SECRET), token },
-        params: { page: 1, pageSize: 20 }
+        system: makeSystem(IMOU_APP_ID, IMOU_APP_SECRET),
+        params: { token, page: 1, pageSize: 20 }
       })
     });
 

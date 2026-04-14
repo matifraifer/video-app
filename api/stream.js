@@ -27,8 +27,8 @@ export default async function handler(req, res) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        system: { ...makeSystem(IMOU_APP_ID, IMOU_APP_SECRET), token },
-        params: { deviceId, channelId, streamId: 1, liveMode: 'proxy' }
+        system: makeSystem(IMOU_APP_ID, IMOU_APP_SECRET),
+        params: { token, deviceId, channelId, streamId: 1, liveMode: 'proxy' }
       })
     });
 
