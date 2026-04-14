@@ -38,14 +38,8 @@ export default async function handler(req, res) {
 
     const data = await response.json();
 
-    if (data.result?.code === '0') {
-      const streams = data.result.data?.streams || [];
-      const hlsUrl = streams[0]?.hls || null;
-      return res.json({ url: hlsUrl, streams });
-    }
-
-    // LV1001 = stream already exists, fetch it with getLiveStreamInfo
-    if (data.result?.code === 'LV1001') {
+    if (data.result?.code === '0' || data.result?.code === 'LV1001') {
+      // Always call getLiveStreamInfo to get all stream types (HTTP + HTTPS)
       const infoRes = await fetch('https://openapi-or.easy4ip.com/openapi/getLiveStreamInfo', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -58,7 +52,14 @@ export default async function handler(req, res) {
       const info = await infoRes.json();
       if (info.result?.code === '0') {
         const streams = info.result.data?.streams || [];
-        const hlsUrl = streams[0]?.hls || null;
+        // Prefer HTTPS stream to avoid mixed-content issues
+        const httpsStream = streams.find(s => s.hls?.startsWith('https://'));
+        const httpStream  = streams.find(s => s.hls?.startsWith('http://'));
+        let hlsUrl = httpsStream?.hls || httpStream?.hls || streams[0]?.hls || null;
+        // Last resort: convert HTTP to HTTPS
+        if (hlsUrl?.startsWith('http://')) {
+          hlsUrl = hlsUrl.replace('http://', 'https://').replace(/:8888/, '');
+        }
         return res.json({ url: hlsUrl, streams });
       }
       return res.status(400).json({ error: info.result?.msg || 'Failed to get stream info', code: info.result?.code });
