@@ -26,6 +26,7 @@ export default async function handler(req, res) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         system: makeSystem(IMOU_APP_ID, IMOU_APP_SECRET),
+        id: crypto.randomUUID(),
         params: { token, page: 1, pageSize: 20 }
       })
     });
