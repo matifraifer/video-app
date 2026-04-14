@@ -59,8 +59,7 @@ export default async function handler(req, res) {
         if (hlsUrl?.startsWith('http://')) {
           hlsUrl = hlsUrl.replace('http://', 'https://').replace(/:8888\b/, '');
         }
-        // Debug: return all stream info
-        return res.json({ url: hlsUrl, chosenStreamId: chosen?.streamId, streams });
+        return res.json({ url: hlsUrl });
       }
       return res.status(400).json({ error: info.result?.msg || 'Failed to get stream info', code: info.result?.code });
     }
