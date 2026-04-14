@@ -41,10 +41,30 @@ export default async function handler(req, res) {
     if (data.result?.code === '0') {
       const streams = data.result.data?.streams || [];
       const hlsUrl = streams[0]?.hls || null;
-      res.json({ url: hlsUrl, streams });
-    } else {
-      res.status(400).json({ error: data.result?.msg || 'Failed to get stream', code: data.result?.code });
+      return res.json({ url: hlsUrl, streams });
     }
+
+    // LV1001 = stream already exists, fetch it with getLiveStreamInfo
+    if (data.result?.code === 'LV1001') {
+      const infoRes = await fetch('https://openapi-or.easy4ip.com/openapi/getLiveStreamInfo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          system: makeSystem(IMOU_APP_ID, IMOU_APP_SECRET),
+          id: crypto.randomUUID(),
+          params: { token, deviceId, channelId }
+        })
+      });
+      const info = await infoRes.json();
+      if (info.result?.code === '0') {
+        const streams = info.result.data?.streams || [];
+        const hlsUrl = streams[0]?.hls || null;
+        return res.json({ url: hlsUrl, streams });
+      }
+      return res.status(400).json({ error: info.result?.msg || 'Failed to get stream info', code: info.result?.code });
+    }
+
+    res.status(400).json({ error: data.result?.msg || 'Failed to get stream', code: data.result?.code });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

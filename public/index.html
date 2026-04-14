@@ -285,7 +285,8 @@
         const token = await getToken();
         const url = await getStream(token);
         if (!url) throw new Error('La API no devolvio una URL de stream. Verifica que la camara este en linea.');
-        playHLS(url);
+        const proxiedUrl = `${BASE}/api/proxy?url=${encodeURIComponent(url)}`;
+        playHLS(proxiedUrl);
       } catch (err) {
         showError(err.message);
         setStatus('error', 'Error');
