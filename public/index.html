@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Camara IMOU</title>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.7/dist/hls.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0f0f0f;
+      color: #e0e0e0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 32px 16px;
+    }
+
+    header {
+      width: 100%;
+      max-width: 900px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+    }
+
+    header h1 {
+      font-size: 1.2rem;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      color: #fff;
+    }
+
+    #status-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.8rem;
+      color: #888;
+    }
+
+    #status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #444;
+      transition: background 0.3s;
+    }
+
+    #status-dot.connecting { background: #f59e0b; }
+    #status-dot.live       { background: #22c55e; animation: pulse 2s infinite; }
+    #status-dot.error      { background: #ef4444; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.4; }
+    }
+
+    .card {
+      width: 100%;
+      max-width: 900px;
+      background: #1a1a1a;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid #2a2a2a;
+    }
+
+    #video-wrapper {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16/9;
+      background: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #camera-video {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: none;
+    }
+
+    #placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      color: #555;
+    }
+
+    #placeholder svg { opacity: 0.4; }
+
+    #placeholder p { font-size: 0.9rem; }
+
+    .controls {
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-top: 1px solid #2a2a2a;
+      flex-wrap: wrap;
+    }
+
+    select {
+      flex: 1;
+      min-width: 180px;
+      background: #252525;
+      border: 1px solid #333;
+      color: #e0e0e0;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      outline: none;
+      cursor: pointer;
+    }
+
+    select:focus { border-color: #555; }
+
+    button {
+      padding: 8px 20px;
+      border-radius: 8px;
+      border: none;
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    #btn-connect {
+      background: #3b82f6;
+      color: #fff;
+    }
+
+    #btn-connect:hover:not(:disabled) { background: #2563eb; }
+
+    #btn-refresh {
+      background: #252525;
+      color: #aaa;
+      border: 1px solid #333;
+    }
+
+    #btn-refresh:hover:not(:disabled) { background: #2e2e2e; }
+
+    #error-msg {
+      width: 100%;
+      max-width: 900px;
+      margin-top: 12px;
+      padding: 10px 14px;
+      background: #2a1515;
+      border: 1px solid #4a2020;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      color: #f87171;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>Camara IMOU</h1>
+    <div id="status-badge">
+      <div id="status-dot"></div>
+      <span id="status-text">Desconectado</span>
+    </div>
+  </header>
+
+  <div class="card">
+    <div id="video-wrapper">
+      <div id="placeholder">
+        <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+          <path d="M15 10l4.553-2.276A1 1 0 0121 8.723v6.554a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/>
+        </svg>
+        <p id="placeholder-text">Selecciona una camara y presiona Conectar</p>
+      </div>
+      <video id="camera-video" controls autoplay muted playsinline></video>
+    </div>
+
+    <div class="controls">
+      <select id="device-select">
+        <option value="">Cargando camaras...</option>
+      </select>
+      <button id="btn-connect" disabled>Conectar</button>
+      <button id="btn-refresh" disabled>Actualizar stream</button>
+    </div>
+  </div>
+
+  <div id="error-msg"></div>
+
+  <script>
+    const BASE = '';  // same origin on Vercel
+
+    const videoEl      = document.getElementById('camera-video');
+    const placeholder  = document.getElementById('placeholder');
+    const placeholderTxt = document.getElementById('placeholder-text');
+    const deviceSelect = document.getElementById('device-select');
+    const btnConnect   = document.getElementById('btn-connect');
+    const btnRefresh   = document.getElementById('btn-refresh');
+    const statusDot    = document.getElementById('status-dot');
+    const statusText   = document.getElementById('status-text');
+    const errorMsg     = document.getElementById('error-msg');
+
+    let hls = null;
+    let currentToken = null;
+
+    function setStatus(state, text) {
+      statusDot.className = state;
+      statusText.textContent = text;
+    }
+
+    function showError(msg) {
+      errorMsg.textContent = msg;
+      errorMsg.style.display = 'block';
+    }
+
+    function clearError() {
+      errorMsg.style.display = 'none';
+    }
+
+    async function getToken() {
+      const res = await fetch(`${BASE}/api/token`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Error al obtener token');
+      return data.token;
+    }
+
+    async function getDevices(token) {
+      const res = await fetch(`${BASE}/api/devices`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Error al obtener dispositivos');
+      return data.devices;
+    }
+
+    async function getStream(token, deviceId) {
+      const res = await fetch(`${BASE}/api/stream`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, deviceId })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Error al obtener stream');
+      return data.url;
+    }
+
+    function playHLS(url) {
+      if (hls) { hls.destroy(); hls = null; }
+
+      videoEl.style.display = 'block';
+      placeholder.style.display = 'none';
+
+      if (Hls.isSupported()) {
+        hls = new Hls({ lowLatencyMode: true });
+        hls.loadSource(url);
+        hls.attachMedia(videoEl);
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          videoEl.play();
+          setStatus('live', 'En vivo');
+          btnRefresh.disabled = false;
+        });
+        hls.on(Hls.Events.ERROR, (_, data) => {
+          if (data.fatal) {
+            setStatus('error', 'Error de stream');
+            showError(`Error HLS: ${data.details}`);
+          }
+        });
+      } else if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
+        // Safari native HLS
+        videoEl.src = url;
+        videoEl.play();
+        setStatus('live', 'En vivo');
+        btnRefresh.disabled = false;
+      } else {
+        showError('Tu navegador no soporta HLS. Usa Chrome, Firefox o Safari.');
+        setStatus('error', 'Navegador no compatible');
+      }
+    }
+
+    async function init() {
+      setStatus('connecting', 'Conectando...');
+      clearError();
+      try {
+        currentToken = await getToken();
+        const devices = await getDevices(currentToken);
+
+        if (devices.length === 0) {
+          showError('No se encontraron camaras vinculadas a tu cuenta IMOU.');
+          setStatus('error', 'Sin camaras');
+          return;
+        }
+
+        deviceSelect.innerHTML = '';
+        devices.forEach(d => {
+          const opt = document.createElement('option');
+          opt.value = d.deviceId;
+          opt.textContent = d.name || d.deviceId;
+          deviceSelect.appendChild(opt);
+        });
+
+        btnConnect.disabled = false;
+        setStatus('', 'Listo');
+        statusDot.className = '';
+      } catch (err) {
+        showError(err.message);
+        setStatus('error', 'Error');
+      }
+    }
+
+    async function connect() {
+      const deviceId = deviceSelect.value;
+      if (!deviceId) return;
+
+      btnConnect.disabled = true;
+      btnRefresh.disabled = true;
+      setStatus('connecting', 'Obteniendo stream...');
+      clearError();
+
+      placeholderTxt.textContent = 'Conectando...';
+      videoEl.style.display = 'none';
+      placeholder.style.display = 'flex';
+
+      try {
+        // Refresh token before each stream request
+        currentToken = await getToken();
+        const url = await getStream(currentToken, deviceId);
+        if (!url) throw new Error('La API no devolvio una URL de stream. Verifica que la camara este en linea.');
+        playHLS(url);
+      } catch (err) {
+        showError(err.message);
+        setStatus('error', 'Error');
+        placeholderTxt.textContent = 'Error al conectar';
+        btnConnect.disabled = false;
+      }
+    }
+
+    btnConnect.addEventListener('click', connect);
+    btnRefresh.addEventListener('click', connect);
+
+    // Auto-load devices on page load
+    init();
+  </script>
+</body>
+</html>
